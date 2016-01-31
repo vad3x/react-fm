@@ -6,13 +6,20 @@
   "scripts": {
     "build": "npm run build-cjs && npm run build-es6",
     "build-cjs": "rimraf lib && babel ./src -d lib; exit 0",
-    "build-es6": "rimraf es6 && babel ./src -d es6; exit 0",
-    "build-umd": "NODE_ENV=production webpack src/index.js umd/ReactFM.js",
-    "build-min": "NODE_ENV=production webpack -p src/index.js umd/ReactFM.min.js",
+    "build-es6": "rimraf lib && babel ./src -d lib --blacklist=es6.modules; exit 0",
+    "build-umd": "NODE_ENV=production webpack src/index.js umd/ReactFrequencyMeter.js",
+    "build-min": "NODE_ENV=production webpack -p src/index.js umd/ReactFrequencyMeter.min.js",
     "lint": "eslint src examples; exit 0",
     "start": "node examples/server.js",
     "postinstall": "node ./npm-scripts/postinstall.js"
   },
+  "files": [
+   "es6",
+   "lib",
+   "src",
+   "npm-scripts",
+   "umd"
+ ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vad3x/react-fm.git"
