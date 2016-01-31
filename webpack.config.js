@@ -1,4 +1,5 @@
 var webpack = require('webpack');
+var ExtractTextPlugin = require('extract-text-webpack-plugin');
 
 module.exports = {
     module: {
@@ -8,15 +9,12 @@ module.exports = {
             exclude: /node_modules/
         }, {
             test: /\.module\.less$/,
-            loaders: [
-                'style-loader',
-                'css-loader?modules&importLoaders=1&localIdentName=[name]__[local]___[hash:base64:5]!less'
-            ]
+            loader: ExtractTextPlugin.extract(['css', 'less'])
         }]
     },
 
     output: {
-        library: 'ReactFM',
+        library: 'react-fm',
         libraryTarget: 'umd'
     },
 
@@ -32,6 +30,9 @@ module.exports = {
         new webpack.optimize.OccurenceOrderPlugin(),
         new webpack.DefinePlugin({
             'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+        }),
+        new ExtractTextPlugin('index.css', {
+            allChunks: true
         })
     ],
 

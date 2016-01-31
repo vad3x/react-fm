@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import ReactDOM from 'react-dom';
-import styles from './FrequencyMeter.module.less';
+import './FrequencyMeter.module.less';
 
 export default class FrequencyMeter extends Component {
     static propTypes = {
@@ -152,7 +152,7 @@ export default class FrequencyMeter extends Component {
         }
 
         return (
-            <svg className={styles.frequencyMeter} height={height} width={width}>
+            <svg className="frequency-meter" height={height} width={width}>
                 {freqLines}
                 {freqTitles}
                 <path fill="transparent" ref="frequency"></path>

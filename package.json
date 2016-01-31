@@ -4,22 +4,18 @@
   "description": "A frequency meter for React.js based on Web Audio Api",
   "main": "lib/index",
   "scripts": {
-    "build": "npm run build-cjs && npm run build-es6",
-    "build-cjs": "rimraf lib && babel ./src -d lib; exit 0",
-    "build-es6": "rimraf lib && babel ./src -d lib --blacklist=es6.modules; exit 0",
-    "build-umd": "NODE_ENV=production webpack src/index.js umd/ReactFrequencyMeter.js",
-    "build-min": "NODE_ENV=production webpack -p src/index.js umd/ReactFrequencyMeter.min.js",
+    "build": "rimraf lib && webpack src/index.js lib/index.js; exit 0",
     "lint": "eslint src examples; exit 0",
     "start": "node examples/server.js",
     "postinstall": "node ./npm-scripts/postinstall.js"
   },
   "files": [
-   "es6",
-   "lib",
-   "src",
-   "npm-scripts",
-   "umd"
- ],
+    "es6",
+    "lib",
+    "src",
+    "npm-scripts",
+    "umd"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vad3x/react-fm.git"
@@ -58,6 +54,7 @@
     "eslint-plugin-react": "^3.16.1",
     "express": "^4.13.4",
     "express-urlrewrite": "^1.2.0",
+    "extract-text-webpack-plugin": "^1.0.1",
     "less": "^2.6.0",
     "less-loader": "^2.2.2",
     "react": "^0.14.7",
