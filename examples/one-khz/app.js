@@ -42,7 +42,7 @@ class App extends Component {
                 this.setState({ audioSource: null });
             }
 
-            const audioSource1 = this.props.audioContext.createBufferSource();
+            const audioSource1 = audioContext.createBufferSource();
 
             this.setState({ audioSource: audioSource1 });
 

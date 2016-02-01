@@ -10,11 +10,9 @@
     "postinstall": "node ./npm-scripts/postinstall.js"
   },
   "files": [
-    "es6",
     "lib",
     "src",
-    "npm-scripts",
-    "umd"
+    "npm-scripts"
   ],
   "repository": {
     "type": "git",
