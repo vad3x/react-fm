@@ -1,5 +1,7 @@
 # React Frequency Meter
 
+![demo](demo.gif)
+
 React Frequency Meter allows you to visualize frequencies in audio using [Web Audio Api](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API).
 
 
