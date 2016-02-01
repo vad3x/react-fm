@@ -1,6 +1,6 @@
 {
   "name": "react-fm",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A frequency meter for React.js based on Web Audio Api",
   "main": "lib/index",
   "scripts": {
