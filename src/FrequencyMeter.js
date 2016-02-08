@@ -2,6 +2,8 @@ import React, { Component } from 'react';
 import ReactDOM from 'react-dom';
 import './FrequencyMeter.module.less';
 
+const LEGEND_FONT_SIZE = 8;
+
 export default class FrequencyMeter extends Component {
     static propTypes = {
         audioContext: React.PropTypes.object,
@@ -10,7 +12,9 @@ export default class FrequencyMeter extends Component {
         height: React.PropTypes.number,
         bandsCount: React.PropTypes.number,
         latency: React.PropTypes.number,
-        fftSize: React.PropTypes.number
+        fftSize: React.PropTypes.number,
+        freqAxis: React.PropTypes.object,
+        dbAxis: React.PropTypes.object,
     };
 
     static defaultProps = {
@@ -20,143 +24,208 @@ export default class FrequencyMeter extends Component {
         height: 300,
         bandsCount: 1024,
         latency: 20,
-        fftSize: 1024 * 2
+        fftSize: 1024 * 2,
+        freqAxis: {
+            min: 20,
+            max: 23000,
+            grid: [50, 100, 200, 500, 1000, 2000, 5000, 10000],
+            labelGrid: [40, 100, 200, 400, 600, 1000, 2000, 4000, 6000, 10000]
+        },
+        dbAxis: {
+            min: -100,
+            max: 0,
+            grid: [-80, -60, -40, -20],
+            labelGrid: []
+        }
     };
 
     componentDidMount() {
-        const { audioSource } = this.props;
-
         this._frequencyNode = ReactDOM.findDOMNode(this.refs.frequency);
 
-        if (audioSource) {
-            this._initInternal();
-        }
+        init.call(this, this.props, this._frequencyNode);
     }
 
     componentDidUpdate() {
-        const { audioSource } = this.props;
-        if (audioSource) {
-            this._initInternal();
-        }
-    }
-
-    _initInternal() {
-        const { audioContext, audioSource, latency, fftSize, width, height } = this.props;
-        this._buffer = new Uint8Array(this.props.fftSize / 2);
-
-        const audioAnalyser = audioContext.createAnalyser();
-
-        audioAnalyser.fftSize = fftSize;
-        audioAnalyser.minDecibels = -90;
-        audioAnalyser.maxDecibels = -10;
-        audioAnalyser.smoothingTimeConstant = 0.9;
-
-        audioSource.connect(audioAnalyser);
-
-        const playingInterval = setInterval(
-                this._renderFrame.bind(this, audioAnalyser, width, height),
-                latency);
-
-        audioSource.onended = () => {
-            clearInterval(playingInterval);
-        };
-    }
-
-    _drawFrequency(min, max, width, height, data, node) {
-        var minp = 0;
-        var maxp = width;
-
-        let stringValue = `M0,${height}`;
-
-        const minv = Math.log(min);
-        const maxv = Math.log(max);
-
-        const scale = ((maxv - minv) / (maxp - minp));
-
-        for (let i = 0; i < data.length; i++) {
-            const value = data[i];
-
-            let x = (Math.log(i) - minv) / scale + minp;
-
-            if (!i) {
-                x = 0;
-            }
-
-            const h = (height * value) / 256;
-            const y = height - h;
-
-            stringValue += `L${x},${y}`;
-        }
-
-        node.setAttribute('d', `${stringValue}Z`);
-    }
-
-    _renderFrame(analyser, width, height) {
-        const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(frequencyData);
-
-        this._drawFrequency(1, frequencyData.length, width, height, frequencyData, this._frequencyNode);
+        init.call(this, this.props, this._frequencyNode);
     }
 
     render() {
-        const { width, height } = this.props;
+        const { width, height, freqAxis, dbAxis } = this.props;
+        const { min, max, grid, labelGrid } = freqAxis;
 
-        const min = 20;
-        const max = 23000;
-
-        var minp = 0;
-        var maxp = width;
+        const minp = 0;
+        const maxp = width;
 
         const minv = Math.log(min);
         const maxv = Math.log(max);
 
         const scale = ((maxv - minv) / (maxp - minp));
 
-        const freqToDraw = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
-
-        const topMargin = 12;
-        const freqLines = [];
-        for (const f of freqToDraw) {
-            const x = Math.ceil((Math.log(f) - minv) / scale + minp);
-
-            const line = (
-                <line
-                    key={f}
-                    strokeWidth="1"
-                    x1={x}
-                    x2={x}
-                    y1={topMargin}
-                    y2={height}
-                >
-                </line>
-                );
-            freqLines.push(line);
-        }
-
-        const freqToTitle = [40, 100, 200, 400, 600, 1000, 2000, 4000, 6000, 10000];
-        const freqTitles = [];
-
-        for (const f of freqToTitle) {
-            const x = Math.ceil((Math.log(f) - minv) / scale + minp) - 10;
-
-            const text = (
-                <text
-                    key={f}
-                    x={x}
-                    y={10}
-                >
-                {f < 1000 ? f : `${f / 1000}k`}
-                </text>);
-
-            freqTitles.push(text);
-        }
+        const freqGrid = plotFreqGrid({ grid, minv, minp, scale, height });
+        const freqLabels = plotFreqLabelGrid({ labelGrid, minv, minp, scale, height });
+        const dbGrid = plotDbLabelGrid({
+            min: dbAxis.min,
+            max: dbAxis.max,
+            grid: dbAxis.grid,
+            height });
 
         return (
             <svg className="frequency-meter" height={height} width={width}>
-                {freqLines}
-                {freqTitles}
+                {freqGrid}
+                {freqLabels}
+                {dbGrid}
                 <path fill="transparent" ref="frequency"></path>
             </svg>
         );
     }
+}
+
+function plotFreqGrid({ grid, minv, minp, scale, height }) {
+    const freqGrid = [];
+    for (const f of grid) {
+        const x = Math.ceil((Math.log(f) - minv) / scale + minp);
+
+        const line = (
+            <line
+                key={f}
+                strokeWidth="1"
+                x1={x}
+                x2={x}
+                y1={0}
+                y2={height}
+            >
+            </line>
+            );
+
+        freqGrid.push(line);
+    }
+
+    return freqGrid;
+}
+
+function plotFreqLabelGrid({ labelGrid, minv, minp, scale }) {
+    const freqLabels = [];
+    for (const f of labelGrid) {
+        const x = Math.ceil((Math.log(f) - minv) / scale + minp) - 10;
+
+        const text = (
+            <text
+                key={f}
+                x={x}
+                y={LEGEND_FONT_SIZE}
+            >
+            {f < 1000 ? f : `${f / 1000}k`}
+            </text>);
+
+        freqLabels.push(text);
+    }
+
+
+    return freqLabels;
+}
+
+function plotDbLabelGrid({ min, max, grid, height }) {
+    const minp = 0;
+    const maxp = height;
+
+    const minv = min;
+    const maxv = max;
+
+    const scale = (maxv - minv) / (maxp - minp);
+
+    const dbGrid = [];
+    for (const f of grid) {
+        const y = maxp - Math.ceil((f - minv) / scale + minp);
+
+        const text = (
+            <text
+                key={f}
+                x={0}
+                y={y + LEGEND_FONT_SIZE / 2}
+            >
+            {Math.abs(f)}
+        </text>);
+
+        dbGrid.push(text);
+    }
+
+    return dbGrid;
+}
+
+function init({ audioContext, audioSource, latency, fftSize, width, height, dbAxis }, domNode) {
+    if (!audioSource) {
+        return;
+    }
+
+    if (this._audioAnalyser) {
+        this._audioAnalyser.disconnect();
+
+        clearInterval(this._playingInterval);
+        this._audioAnalyser = null;
+    }
+
+    const { min, max } = dbAxis;
+    const audioAnalyser = audioContext.createAnalyser();
+
+    audioAnalyser.fftSize = fftSize;
+    audioAnalyser.minDecibels = min;
+    audioAnalyser.maxDecibels = max;
+    audioAnalyser.smoothingTimeConstant = 0.95;
+
+    this._audioAnalyser = audioAnalyser;
+
+    audioSource.connect(audioAnalyser);
+
+    this._playingInterval = setInterval(
+            renderFrame.bind(this, audioAnalyser, width, height, domNode),
+            latency);
+
+    audioSource.onended = () => {
+        clearInterval(this._playingInterval);
+    };
+}
+
+function renderFrame(analyser, width, height, domNode) {
+    const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(frequencyData);
+
+    const frameParams = {
+        min: 1,
+        max: frequencyData.length,
+        width,
+        height,
+        data: frequencyData,
+        node: domNode
+    };
+
+    plotGraphLog(frameParams);
+}
+
+function plotGraphLog({ min, max, width, height, data, node }) {
+    const minp = 0;
+    const maxp = width;
+
+    let stringValue = `M0,${height}`;
+
+    const minv = Math.log(min);
+    const maxv = Math.log(max);
+
+    const scale = ((maxv - minv) / (maxp - minp));
+
+    for (let i = 0; i < data.length; i++) {
+        const value = data[i];
+
+        let x = 0;
+
+        if (i) {
+            x = (Math.log(i) - minv) / scale + minp;
+        }
+
+        const h = (height * value) / 256;
+        const y = height - h;
+
+        stringValue += `L${x},${y}`;
+    }
+
+    node.setAttribute('d', `${stringValue}Z`);
 }
