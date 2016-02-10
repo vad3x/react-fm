@@ -68,7 +68,6 @@ class App extends Component {
                 <button onClick={this.play.bind(this)}>Play</button>
                 <button onClick={this.stop.bind(this)}>Stop</button>
                 <FrequencyMeter
-                    audioContext={this.props.audioContext}
                     audioSource={this.state.audioSource}
                 />
             </div>);

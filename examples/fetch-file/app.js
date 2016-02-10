@@ -80,7 +80,6 @@ class App extends Component {
                     Stop
                 </button>
                 <FrequencyMeter
-                    audioContext={this.props.audioContext}
                     audioSource={this.state.audioSource}
                 />
             </div>);

@@ -6,7 +6,6 @@ const LEGEND_FONT_SIZE = 8;
 
 export default class FrequencyMeter extends Component {
     static propTypes = {
-        audioContext: React.PropTypes.object,
         audioSource: React.PropTypes.object,
         width: React.PropTypes.number,
         height: React.PropTypes.number,
@@ -15,10 +14,10 @@ export default class FrequencyMeter extends Component {
         fftSize: React.PropTypes.number,
         freqAxis: React.PropTypes.object,
         dbAxis: React.PropTypes.object,
+        smoothingTimeConstant: React.PropTypes.number
     };
 
     static defaultProps = {
-        audioContext: null,
         audioSource: null,
         width: 800,
         height: 300,
@@ -36,17 +35,39 @@ export default class FrequencyMeter extends Component {
             max: 0,
             grid: [-80, -60, -40, -20],
             labelGrid: []
-        }
+        },
+        smoothingTimeConstant: 0.95
     };
 
     componentDidMount() {
         this._frequencyNode = ReactDOM.findDOMNode(this.refs.frequency);
-
-        init.call(this, this.props, this._frequencyNode);
     }
 
-    componentDidUpdate() {
-        init.call(this, this.props, this._frequencyNode);
+    componentWillUpdate(nextProps) {
+        const { audioSource } = nextProps;
+
+        if (this._audioAnalyser && audioSource !== this.props.audioSource) {
+            this._audioAnalyser.disconnect();
+
+            clearInterval(this._playingInterval);
+            this._audioAnalyser = null;
+        }
+
+        if (audioSource && audioSource !== this.props.audioSource) {
+            this._audioAnalyser = createAnalyzer(nextProps);
+
+            const { latency, width, height } = nextProps;
+
+            this._playingInterval = startTimer(
+                {
+                    audioSource,
+                    audioAnalyser: this._audioAnalyser,
+                    latency,
+                    width,
+                    height,
+                    domNode: this._frequencyNode
+                });
+        }
     }
 
     render() {
@@ -152,37 +173,35 @@ function plotDbLabelGrid({ min, max, grid, height }) {
     return dbGrid;
 }
 
-function init({ audioContext, audioSource, latency, fftSize, width, height, dbAxis }, domNode) {
+function createAnalyzer({ audioSource, fftSize, dbAxis, smoothingTimeConstant }) {
     if (!audioSource) {
-        return;
-    }
-
-    if (this._audioAnalyser) {
-        this._audioAnalyser.disconnect();
-
-        clearInterval(this._playingInterval);
-        this._audioAnalyser = null;
+        throw new Error('audioSource is expected');
     }
 
     const { min, max } = dbAxis;
-    const audioAnalyser = audioContext.createAnalyser();
+    const audioAnalyser = audioSource.context.createAnalyser();
 
     audioAnalyser.fftSize = fftSize;
     audioAnalyser.minDecibels = min;
     audioAnalyser.maxDecibels = max;
-    audioAnalyser.smoothingTimeConstant = 0.95;
-
-    this._audioAnalyser = audioAnalyser;
+    audioAnalyser.smoothingTimeConstant = smoothingTimeConstant;
 
     audioSource.connect(audioAnalyser);
 
-    this._playingInterval = setInterval(
+    return audioAnalyser;
+}
+
+function startTimer({ audioSource, audioAnalyser, latency, width, height, domNode }) {
+    const playingInterval = setInterval(
             renderFrame.bind(this, audioAnalyser, width, height, domNode),
             latency);
 
+    /* eslint-disable no-param-reassign */
     audioSource.onended = () => {
-        clearInterval(this._playingInterval);
+        clearInterval(playingInterval);
     };
+
+    return playingInterval;
 }
 
 function renderFrame(analyser, width, height, domNode) {
