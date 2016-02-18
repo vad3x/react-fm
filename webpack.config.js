@@ -1,5 +1,6 @@
 var webpack = require('webpack');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
+var path = require('path');
 
 module.exports = {
     module: {
@@ -19,6 +20,9 @@ module.exports = {
     },
 
     resolve: {
+        root: [
+            path.resolve('./src')
+        ],
         extensions: ['', '.js', '.jsx']
     },
 

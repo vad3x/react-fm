@@ -7,7 +7,8 @@
     "build": "rimraf lib && webpack src/index.js lib/index.js; exit 0",
     "lint": "eslint src examples; exit 0",
     "start": "node examples/server.js",
-    "postinstall": "node ./npm-scripts/postinstall.js"
+    "postinstall": "node ./npm-scripts/postinstall.js",
+    "test": "jest"
   },
   "files": [
     "lib",
@@ -38,6 +39,7 @@
     "babel-cli": "^6.4.5",
     "babel-core": "^6.4.5",
     "babel-eslint": "^4.1.6",
+    "babel-jest": "^6.0.1",
     "babel-loader": "^6.2.1",
     "babel-plugin-dev-expression": "^0.1.0",
     "babel-preset-es2015": "^6.3.13",
@@ -53,13 +55,25 @@
     "express": "^4.13.4",
     "express-urlrewrite": "^1.2.0",
     "extract-text-webpack-plugin": "^1.0.1",
+    "jest-cli": "^0.8.2",
+    "jest-webpack-alias": "^2.2.0",
     "less": "^2.6.0",
     "less-loader": "^2.2.2",
     "react": "^0.14.7",
+    "react-addons-test-utils": "^0.14.7",
     "react-dom": "^0.14.7",
     "rimraf": "^2.5.1",
     "style-loader": "^0.13.0",
     "webpack": "^1.12.12",
     "webpack-dev-middleware": "^1.5.1"
+  },
+  "jest": {
+    "scriptPreprocessor": "<rootDir>/jest/preprocessor.js",
+    "unmockedModulePathPatterns": [
+        "<rootDir>/node_modules/react",
+        "<rootDir>/node_modules/fbjs",
+        "<rootDir>/node_modules/react-dom",
+        "<rootDir>/node_modules/react-addons-test-utils"
+    ]
   }
 }
