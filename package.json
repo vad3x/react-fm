@@ -1,6 +1,6 @@
 {
   "name": "react-fm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A frequency meter for React.js based on Web Audio Api",
   "main": "lib/index",
   "scripts": {
@@ -70,10 +70,10 @@
   "jest": {
     "scriptPreprocessor": "<rootDir>/jest/preprocessor.js",
     "unmockedModulePathPatterns": [
-        "<rootDir>/node_modules/react",
-        "<rootDir>/node_modules/fbjs",
-        "<rootDir>/node_modules/react-dom",
-        "<rootDir>/node_modules/react-addons-test-utils"
+      "<rootDir>/node_modules/react",
+      "<rootDir>/node_modules/fbjs",
+      "<rootDir>/node_modules/react-dom",
+      "<rootDir>/node_modules/react-addons-test-utils"
     ]
   }
 }
