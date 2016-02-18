@@ -6,13 +6,11 @@ import FrequencyMeter from 'react-fm';
 
 class App extends Component {
     static propTypes = {
-        audioContext: React.PropTypes.object,
-        fileName: React.PropTypes.string
+        audioContext: React.PropTypes.object
     };
 
     static defaultProps = {
-        audioContext: new AudioContext(),
-        fileName: '1kHz_44100Hz_16bit_05sec.mp3'
+        audioContext: new AudioContext()
     };
 
     constructor(props) {
@@ -24,23 +22,14 @@ class App extends Component {
     }
 
     componentDidMount() {
-        getAudio(this.props.fileName, (data) => {
-            this.props.audioContext.decodeAudioData(data, (audioBuffer) => {
-                this.setState({ audioBuffer });
-            });
-        });
     }
 
     play() {
         const { audioContext } = this.props;
-        const { audioBuffer, audioSource } = this.state;
+        const { audioBuffer } = this.state;
 
         if (audioBuffer) {
-            if (audioSource) {
-                this.stop();
-
-                this.setState({ audioSource: null });
-            }
+            this.stop();
 
             const audioSource1 = audioContext.createBufferSource();
 
@@ -58,15 +47,38 @@ class App extends Component {
         const { audioSource } = this.state;
 
         if (audioSource) {
-            audioSource.stop();
+            this.state.audioSource.disconnect();
+            this.setState({ audioSource: null });
         }
+    }
+
+    handleChange(event) {
+        this.setState({ fileName: event.target.value });
+    }
+
+    loadFile() {
+        if (!this.state.fileName) {
+            return;
+        }
+
+        getAudio(this.state.fileName, (data) => {
+            this.props.audioContext.decodeAudioData(data, (audioBuffer) => {
+                this.setState({ audioBuffer });
+            });
+        });
     }
 
     render() {
         return (
             <div>
-                <button onClick={this.play.bind(this)}>Play</button>
-                <button onClick={this.stop.bind(this)}>Stop</button>
+                <input value={this.state.fileName} onChange={this.handleChange.bind(this)} />
+                <button onClick={this.loadFile.bind(this)}>Load</button>
+                <button onClick={this.play.bind(this)} disabled={!this.state.audioBuffer}>
+                    Play
+                </button>
+                <button onClick={this.stop.bind(this)} disabled={!this.state.audioBuffer}>
+                    Stop
+                </button>
                 <FrequencyMeter
                     audioSource={this.state.audioSource}
                 />
