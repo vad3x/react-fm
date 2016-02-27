@@ -42,17 +42,26 @@ describe('FrequencyMeter', () => {
     });
 
     it('get log path data', () => {
+        var calcRatio = require('../FrequencyMeter').calcRatio;
         var getLogPathData = require('../FrequencyMeter').getLogPathData;
 
+        const minValue = 0;
+        const maxValue = 255;
+        const minBound = 0;
+        const maxBound = 255;
+
+        const ratio = calcRatio(minValue, maxValue, minBound, maxBound);
+
         const logPathData = getLogPathData({
-            width: 10,
+            ratio,
             height: 100,
-            data: [0, 8, 16, 32, 64, 255],
+            channelsData: [[0, 8, 16, 32, 64, 255]],
             maxValue: 255
         });
 
-        expect(logPathData)
-        .toBe('M0,100L0,100L0,96.86274509803921L4,'
-            + '93.72549019607843L7,87.45098039215686L8,74.90196078431373L9,0Z');
+        expect(logPathData.length).toBe(1);
+        expect(logPathData[0])
+        .toBe('M0,100L0,100L0,96.86274509803921L1,93.72549019607843'
+            + 'L2,87.45098039215686L2,74.90196078431373L2,0Z');
     });
 });

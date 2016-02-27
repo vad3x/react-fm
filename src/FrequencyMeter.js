@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import ReactDOM from 'react-dom';
 import './FrequencyMeter.module.less';
 
 const LEGEND_FONT_SIZE = 8;
@@ -14,7 +13,8 @@ export default class FrequencyMeter extends Component {
         fftSize: React.PropTypes.number,
         freqAxis: React.PropTypes.object,
         dbAxis: React.PropTypes.object,
-        smoothingTimeConstant: React.PropTypes.number
+        smoothingTimeConstant: React.PropTypes.number,
+        processingKind: React.PropTypes.oneOf(['Regular', 'Stereo', 'MidSide'])
     };
 
     static defaultProps = {
@@ -36,37 +36,40 @@ export default class FrequencyMeter extends Component {
             grid: [-80, -60, -40, -20],
             labelGrid: []
         },
-        smoothingTimeConstant: 0.95
+        smoothingTimeConstant: 0.95,
+        processingKind: 'Stereo'
     };
 
     componentDidMount() {
-        this._frequencyNode = ReactDOM.findDOMNode(this.refs.frequency);
     }
 
     componentWillUpdate(nextProps) {
         const { audioSource } = nextProps;
 
-        if (this._audioAnalyser && audioSource !== this.props.audioSource) {
-            this._audioAnalyser.disconnect();
+        if (this._audioAnalysers && audioSource !== this.props.audioSource) {
+            for (const analyser of this._audioAnalysers) {
+                analyser.disconnect();
+            }
 
             clearInterval(this._playingInterval);
-            this._audioAnalyser = null;
+            this._audioAnalysers = null;
         }
 
         if (audioSource && audioSource !== this.props.audioSource) {
-            this._audioAnalyser = createAnalyzer(nextProps);
+            this._audioAnalysers = createAnalyzers(nextProps);
 
             const { latency, width, height, fftSize } = nextProps;
+            const ratio = calcRatio(Math.log(1), Math.log(fftSize / 2), 0, width);
 
             this._playingInterval = startTimer(
                 {
                     audioSource,
-                    audioAnalyser: this._audioAnalyser,
+                    audioAnalysers: this._audioAnalysers,
+                    processingKind: nextProps.processingKind,
                     latency,
-                    width,
                     height,
-                    fftSize,
-                    domNode: this._frequencyNode
+                    ratio,
+                    channelDoms: [this.refs['channel-0'], this.refs['channel-1']]
                 });
         }
     }
@@ -96,7 +99,8 @@ export default class FrequencyMeter extends Component {
                 {freqGrid}
                 {freqLabels}
                 {dbGrid}
-                <path fill="transparent" ref="frequency"></path>
+                <path className="channel-0" fill="transparent" ref="channel-0"></path>
+                <path className="channel-1" fill="transparent" ref="channel-1"></path>
             </svg>
         );
     }
@@ -125,6 +129,54 @@ export function calcRatio(minValue, maxValue, minBound, maxBound) {
 
 export function scaleValue(value, scale) {
     return Math.ceil((value - scale.minValue) / scale.value + scale.minBound);
+}
+
+/**
+ * Gets path data that fits to the rectangle box, ex. M0,12L1,0Z.
+ * It gets histogram data array and represents it logariphmic.
+ *
+ * @ratio {ratio} ratio
+ * @height {number} Box height
+ * @frequencyBinCount {number} Number of points
+ * @channelsData {array[]} Min bound size
+ * @maxValue {number} Max value
+ * @return {string[]} Array of String representation of channel data.
+ */
+export function getLogPathData({
+    ratio,
+    height,
+    channelsData,
+    maxValue
+}) {
+    const channelStringValues = [];
+    const numberOfChannels = channelsData.length;
+
+    for (let index = 0; index < numberOfChannels; index++) {
+        channelStringValues[channelStringValues.length] = `M0,${height}`;
+    }
+
+    for (let index = 0; index < numberOfChannels; index++) {
+        const data = channelsData[index];
+        for (let i = 0; i < data.length; i++) {
+            const value = data[i];
+
+            let x = 0;
+
+            if (i) {
+                x = scaleValue(Math.log(i), ratio);
+            }
+
+            const y = height - height * value / maxValue;
+
+            channelStringValues[index] += `L${x},${y}`;
+        }
+    }
+
+    for (let index = 0; index < numberOfChannels; index++) {
+        channelStringValues[index] = `${channelStringValues[index]}Z`;
+    }
+
+    return channelStringValues;
 }
 
 function plotFreqGrid({ grid, scale, height }) {
@@ -199,29 +251,68 @@ function plotDbLabelGrid({ min, max, grid, height }) {
     return dbGrid;
 }
 
-function createAnalyzer({ audioSource, fftSize, dbAxis, smoothingTimeConstant }) {
+function createAnalyzers({ audioSource, fftSize, dbAxis, smoothingTimeConstant, processingKind }) {
     if (!audioSource) {
         throw new Error('audioSource is expected');
     }
 
     const { min, max } = dbAxis;
-    const audioAnalyser = audioSource.context.createAnalyser();
 
-    audioAnalyser.fftSize = fftSize;
-    audioAnalyser.minDecibels = min;
-    audioAnalyser.maxDecibels = max;
-    audioAnalyser.smoothingTimeConstant = smoothingTimeConstant;
+    switch (processingKind) {
+        case 'Regular':
+            {
+                const audioAnalyser = audioSource.context.createAnalyser();
 
-    // TODO make stereo option
-    audioSource.connect(audioAnalyser, 0, 0);
+                audioAnalyser.fftSize = fftSize;
+                audioAnalyser.minDecibels = min;
+                audioAnalyser.maxDecibels = max;
+                audioAnalyser.smoothingTimeConstant = smoothingTimeConstant;
 
-    return audioAnalyser;
+                audioSource.connect(audioAnalyser);
+
+                return [audioAnalyser];
+            }
+        case 'Stereo':
+        case 'MidSide':
+            {
+                const splitter = audioSource.context.createChannelSplitter(2);
+                audioSource.connect(splitter);
+
+                const audioAnalyser0 = audioSource.context.createAnalyser();
+
+                audioAnalyser0.fftSize = fftSize;
+                audioAnalyser0.minDecibels = min;
+                audioAnalyser0.maxDecibels = max;
+                audioAnalyser0.smoothingTimeConstant = smoothingTimeConstant;
+
+                const audioAnalyser1 = audioSource.context.createAnalyser();
+                audioAnalyser1.fftSize = fftSize;
+                audioAnalyser1.minDecibels = min;
+                audioAnalyser1.maxDecibels = max;
+                audioAnalyser1.smoothingTimeConstant = smoothingTimeConstant;
+
+                splitter.connect(audioAnalyser0, 0, 0);
+                splitter.connect(audioAnalyser1, 1, 0);
+
+                return [audioAnalyser0, audioAnalyser1];
+            }
+        default:
+            throw new Error('Not implemented');
+    }
 }
 
-function startTimer({ audioSource, audioAnalyser, latency, width, height, fftSize, domNode }) {
+function startTimer({
+    audioSource,
+    audioAnalysers,
+    processingKind,
+    latency,
+    height,
+    ratio,
+    channelDoms
+}) {
     const playingInterval = setInterval(
-            renderFrame.bind(this, audioAnalyser, width, height, fftSize, domNode),
-            latency);
+        renderFrame.bind(this, audioAnalysers, processingKind, height, ratio, channelDoms),
+        latency);
 
     /* eslint-disable no-param-reassign */
     audioSource.onended = () => {
@@ -231,49 +322,49 @@ function startTimer({ audioSource, audioAnalyser, latency, width, height, fftSiz
     return playingInterval;
 }
 
-function renderFrame(analyser, width, height, fftSize, domNode) {
-    const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(frequencyData);
+function renderFrame(analysers, processingKind, height, ratio, channelDoms) {
+    const frequencyDatas = [];
+    for (const analyser of analysers) {
+        const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(frequencyData);
+        frequencyDatas[frequencyDatas.length] = frequencyData;
+    }
+
+    switch (processingKind) {
+        case 'Regular':
+        case 'Stereo':
+            {
+                break;
+            }
+        case 'MidSide':
+            {
+                for (let i = 0; i < frequencyDatas[0].length; i++) {
+                    const leftChannelValue = frequencyDatas[0][i];
+                    const rightChannelValue = frequencyDatas[1][i];
+
+                    // Mid
+                    const mid = Math.min(leftChannelValue, rightChannelValue);
+                    frequencyDatas[0][i] = mid;
+
+                    // Side
+                    const side = Math.abs(leftChannelValue - rightChannelValue);
+                    frequencyDatas[1][i] = side;
+                }
+                break;
+            }
+        default:
+            throw new Error('Not implemented');
+    }
 
     const frameParams = {
-        width,
+        ratio,
         height,
-        data: frequencyData,
+        channelsData: frequencyDatas,
         maxValue: 255
     };
 
-    domNode.setAttribute('d', getLogPathData(frameParams));
-}
-
-/**
- * Gets path data that fits to the rectangle box, ex. M0,12L1,0Z.
- * It gets histogram data array and represents it logariphmic.
- *
- * @width {number} Box width
- * @height {number} Box height
- * @maxValue {number} Max data value
- * @data {array} Min bound size
- * @return {string} String representation of data.
- */
-export function getLogPathData({ width, height, data, maxValue }) {
-    let stringValue = `M0,${height}`;
-
-    const ratio = calcRatio(Math.log(1), Math.log(data.length), 0, width);
-
-    for (let i = 0; i < data.length; i++) {
-        const value = data[i];
-
-        let x = 0;
-
-        if (i) {
-            x = scaleValue(Math.log(i), ratio);
-        }
-
-        const h = (height * value) / maxValue;
-        const y = height - h;
-
-        stringValue += `L${x},${y}`;
+    const data = getLogPathData(frameParams);
+    for (var i = 0; i < channelDoms.length; i++) {
+        channelDoms[i].setAttribute('d', data[i]);
     }
-
-    return `${stringValue}Z`;
 }
